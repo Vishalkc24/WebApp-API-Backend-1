@@ -3,7 +3,9 @@ console.log("Before Express app initialization");
 
 // Import necessary modules
 // Import Express framework
-const express = require('express');  
+const express = require('express'); 
+// Import the cors package
+const cors = require('cors');
 
 // Import dotenv to load environment variables
 const dotenv = require('dotenv');  
@@ -19,6 +21,9 @@ console.log("Starting the server...");
 
 // Initialize the Express app
 const app = express();
+
+// Enable CORS for all domains (this allows all cross-origin requests)
+app.use(cors());
 
 // Middleware to handle JSON requests
 app.use(express.json());
