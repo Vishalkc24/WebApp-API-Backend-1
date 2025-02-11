@@ -10,7 +10,7 @@ const getAllTrips = (req, res) => {
   console.log('Fetching all trips...');
 
   // Get the file path from the environment variable
-  const filePath = process.env.ROUTES_FILE_PATH.replace('routes_wd.txt', 'trips_wd.txt');
+  const filePath = process.env.TRIPS_FILE_PATH;
 
   try {
     // Read the file data synchronously
@@ -24,9 +24,10 @@ const getAllTrips = (req, res) => {
       // Split each line by commas and trim extra spaces
       const [route_id, service_id, trip_id] = line.split(',').map(item => item.trim()); // Remove extra spaces
       return {
+        // Parse and return the trip data
         route_id: parseInt(route_id),
         service_id: service_id,
-        trip_id: parseInt(trip_id)
+        trip_id: trip_id
       };
     });
 
