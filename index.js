@@ -16,6 +16,9 @@ const routeRoutes = require('./routes/routeRoutes');
 // Import the routes for trips
 const tripRoutes = require('./routes/tripRoutes');
 
+// Import the routes for stops
+const stopRoutes = require('./routes/stopRoutes');
+
 // Initialize dotenv to load environment variables from .env file
 dotenv.config();
 
@@ -34,8 +37,11 @@ app.use(express.json());
 // Use the imported routes in the app
 app.use(routeRoutes);
 
-// Use the imported routes in the app
+// Use the imported trips in the app
 app.use(tripRoutes);
+
+// Use the imported stops in the app
+app.use(stopRoutes);
 
 // Define the port from environment variables or fallback to 3000
 const PORT = process.env.PORT || 3000;
