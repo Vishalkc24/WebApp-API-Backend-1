@@ -10,7 +10,7 @@ const getAllStops = (req, res) => {
   console.log('Fetching all stops...');
 
   // Get the file path from the environment variable
-  const filePath = process.env.ROUTES_FILE_PATH.replace('routes_wd.txt', 'stops_wd.txt');
+  const filePath = process.env.STOPS_FILE_PATH;
 
   try {
     // Read the file data synchronously
