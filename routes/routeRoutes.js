@@ -11,6 +11,9 @@ const routeController = require('../controller/routeController');
 // This route listens for GET requests on '/api/routes' and calls getAllRoutes function
 router.get('/api/routes', routeController.getAllRoutes);
 
+// Define the route to get a specific route by ID
+router.get('/api/:route_id', routeController.getRouteByID);
+
 // Export the router to be used in the main application
 module.exports = router;
 
