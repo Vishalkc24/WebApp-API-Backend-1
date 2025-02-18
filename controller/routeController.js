@@ -51,7 +51,39 @@ const getAllRoutes = (req, res) => {
   }
 };
 
+// Controller to get a route by ID
+const getRouteByID = (req, res) => {
+  const filePath = process.env.ROUTES_FILE_PATH;
+
+  try {
+    const data = fs.readFileSync(filePath, 'utf8');
+    const lines = data.split('\n').filter(line => line.trim() !== '');
+
+    const routes = lines.slice(1).map(line => {
+      const [route_id, route_desc, route_type] = line.split(',').map(item => item.trim());
+      return {
+        route_id: parseInt(route_id),
+        route_desc: route_desc,
+        route_type: parseInt(route_type)
+      };
+    });
+
+    const routeID = parseInt(req.params.route_id);
+    const route = routes.find(route => route.route_id === routeID);
+
+    if (!route) {
+      return res.status(404).json({ message: 'Route not found' });
+    }
+
+    res.json(route);
+  } catch (err) {
+    console.error('Error reading file:', err);
+    res.status(500).json({ message: 'Error retrieving the route' });
+  }
+};
+
 // Export the function to be used in the route handler
 module.exports = {
-  getAllRoutes
+  getAllRoutes,
+  getRouteByID
 };
