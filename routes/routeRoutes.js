@@ -12,7 +12,7 @@ const routeController = require('../controller/routeController');
 router.get('/api/routes', routeController.getAllRoutes);
 
 // Define the route to get a specific route by ID
-router.get('/api/:route_id', routeController.getRouteByID);
+router.get('/api/routes/:route_id', routeController.getRouteByID);
 
 // Export the router to be used in the main application
 module.exports = router;
