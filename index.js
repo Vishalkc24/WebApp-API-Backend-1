@@ -22,6 +22,9 @@ const stopRoutes = require('./routes/stopRoutes');
 // Import the stop times from stopRoutes.js
 const stoptimeRoutes = require('./routes/stopTimeRoutes'); 
 
+// Import the new route for shortest path calculation
+const shortestPathRoutes = require('./routes/shortestPathRoutes');
+
 // Initialize dotenv to load environment variables from .env file
 dotenv.config();
 
@@ -48,6 +51,9 @@ app.use(stopRoutes);
 
 // Use the imported stop times in the app
 app.use(stoptimeRoutes);
+
+// Use the new routes in the application
+app.use(shortestPathRoutes);
 
 // Define the port from environment variables or fallback to 3000
 const PORT = process.env.PORT || 3000;
