@@ -10,6 +10,16 @@ const cors = require('cors');
 // Import dotenv to load environment variables
 const dotenv = require('dotenv');  
 
+const { Pool } = require('pg');
+
+// Database connection configuration using environment variables
+const pool = new Pool({
+  host: process.env.DB_HOST,
+  database: process.env.DB_NAME,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+});
+
 // Import the routes from routeRoutes.js
 const routeRoutes = require('./routes/routeRoutes');  
 
@@ -24,6 +34,9 @@ const stoptimeRoutes = require('./routes/stopTimeRoutes');
 
 // Import the new route for shortest path calculation
 const shortestPathRoutes = require('./routes/shortestPathRoutes');
+
+// Import the shapes from shapeRoutes.js
+const shapeRoutes = require('./routes/shapeRoutes');
 
 // Initialize dotenv to load environment variables from .env file
 dotenv.config();
@@ -55,6 +68,9 @@ app.use(stoptimeRoutes);
 // Use the new routes in the application
 app.use(shortestPathRoutes);
 
+// Use the imported shapes in the app
+app.use(shapeRoutes);
+
 // Define the port from environment variables or fallback to 3000
 const PORT = process.env.PORT || 3000;
 
@@ -65,3 +81,9 @@ app.listen(PORT, () => {
 
 // Log after Express app has been initialized
 console.log("After Express app initialization");
+
+
+// 1st download osm map of bangalore region
+  // all stops are covered in the map
+  // then for every route, each route has 4 stops, a-b, b-c, c-d, d-e and save it in db
+  // write api to get shortest path between the routes
