@@ -10,7 +10,7 @@ const getAllTrips = (req, res) => {
   console.log('Fetching all trips...');
 
   // Get the file path from the environment variable
-  const filePath = process.env.TRIPS_FILE_PATH;
+  const filePath = process.env.TRIPS_WITH_SHAPES_FILE_PATH;
 
   try {
     // Read the file data synchronously
@@ -22,12 +22,13 @@ const getAllTrips = (req, res) => {
     // Parse each line into a trip object
     const trips = lines.slice(1).map(line => {
       // Split each line by commas and trim extra spaces
-      const [route_id, service_id, trip_id] = line.split(',').map(item => item.trim()); // Remove extra spaces
+      const [route_id, service_id, trip_id, shape_id] = line.split(',').map(item => item.trim()); // Remove extra spaces
       return {
         // Parse and return the trip data
         route_id: parseInt(route_id),
         service_id: service_id,
-        trip_id: trip_id
+        trip_id: trip_id,
+        shape_id: shape_id
       };
     });
 
@@ -51,7 +52,7 @@ const getTripByID = (req, res) => {
   console.log(`Fetching trip with ID: ${trip_id}`);
 
   // Get the file path from the environment variable
-  const filePath = process.env.TRIPS_FILE_PATH;
+  const filePath = process.env.TRIPS_WITH_SHAPES_FILE_PATH;
 
   try {
     // Read the file data synchronously
@@ -62,11 +63,12 @@ const getTripByID = (req, res) => {
 
     // Parse each line into a trip object
     const trips = lines.slice(1).map(line => {
-      const [route_id, service_id, trip_id_in_file] = line.split(',').map(item => item.trim()); // Remove extra spaces
+      const [route_id, service_id, trip_id_in_file, shape_id] = line.split(',').map(item => item.trim()); // Remove extra spaces
       return {
         route_id: parseInt(route_id),
         service_id: service_id,
-        trip_id: trip_id_in_file
+        trip_id: trip_id_in_file,
+        shape_id: shape_id
       };
     });
 
