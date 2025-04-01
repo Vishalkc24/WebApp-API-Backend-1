@@ -9,7 +9,7 @@ const shapeController = require('../controller/shapeController');
 
 // Define the route to get all shapes
 // This route listens for GET requests on '/api/shapes' and calls getAllShapes function
-router.get('/api/shapes', shapeController.getAllShapes);
+// router.get('/api/shapes', shapeController.getAllShapes);
 
 // Define the route to get shape by shape_id
 // This route listens for GET requests on '/api/shapes/:shape_id' and calls getShapeById function
