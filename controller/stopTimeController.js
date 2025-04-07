@@ -135,6 +135,11 @@ const getRouteTripsStopTimes = async (req, res) => {
   }
 };
 
+// const fs = require('fs').promises; // Use async file reading to avoid blocking the event loop
+
+// Cache data for routes, trips, and stop times in memory at server startup to avoid redundant file reads
+
+// Use Promise.all to process stop times for all trips concurrently for improved performance
 
 module.exports = {
   getStopTimesByTripId,
