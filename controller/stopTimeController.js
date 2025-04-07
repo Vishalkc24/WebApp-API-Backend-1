@@ -1,4 +1,5 @@
-const fs = require('fs');
+const fs = require('fs').promises;
+
 require('dotenv').config();
 
 // Controller to get stop times for a specific trip_id
@@ -50,71 +51,83 @@ const getStopTimesByTripId = (req, res) => {
   }
 };
 
-// Controller to get route details, trips, and stop times by route_id
-const getRouteTripsStopTimes = async (req, res) => {
-  const routeID = parseInt(req.params.route_id);
-  const routeFilePath = process.env.ROUTES_FILE_PATH;
-  const tripsFilePath = process.env.TRIPS_WITH_SHAPES_FILE_PATH;
-  const stopTimesFilePath = process.env.STOP_TIMES_FILE_PATH;
+// Cache for the routes, trips, and stop times data
+let cachedRoutes = null;
+let cachedTrips = null;
+let cachedStopTimes = null;
 
+// Read data files once at the start of the application (in memory cache)
+const loadData = async () => {
   try {
-    // Fetch Route
-    const routeData = fs.readFileSync(routeFilePath, 'utf8');
-    const routeLines = routeData.split('\n').filter(line => line.trim() !== '');
-    const routes = routeLines.slice(1).map(line => {
+    // Read all files asynchronously
+    const routeData = await fs.readFile(process.env.ROUTES_FILE_PATH, 'utf8');
+    const tripData = await fs.readFile(process.env.TRIPS_WITH_SHAPES_FILE_PATH, 'utf8');
+    const stopTimesData = await fs.readFile(process.env.STOP_TIMES_FILE_PATH, 'utf8');
+
+    // Cache the data in memory
+    cachedRoutes = routeData.split('\n').filter(line => line.trim() !== '').slice(1).map(line => {
       const [route_id, route_desc, route_type] = line.split(',').map(item => item.trim());
       return { route_id: parseInt(route_id), route_desc, route_type: parseInt(route_type) };
     });
 
-    const route = routes.find(route => route.route_id === routeID);
-    if (!route) {
-      return res.status(404).json({ message: 'Route not found' });
-    }
-
-    // Fetch Trips
-    const tripsData = fs.readFileSync(tripsFilePath, 'utf8');
-    const tripLines = tripsData.split('\n').filter(line => line.trim() !== '');
-    const trips = tripLines.slice(1).map(line => {
+    cachedTrips = tripData.split('\n').filter(line => line.trim() !== '').slice(1).map(line => {
       const [route_id, service_id, trip_id, shape_id] = line.split(',').map(item => item.trim());
       return { route_id: parseInt(route_id), service_id, trip_id, shape_id };
     });
 
-    const routeTrips = trips.filter(trip => trip.route_id === routeID);
+    cachedStopTimes = stopTimesData.split('\n').filter(line => line.trim() !== '').slice(1).map(line => {
+      const [trip_id, arrival_time, departure_time, stop_id, stop_sequence] = line.split(',').map(item => item.trim());
+      return { trip_id, arrival_time, departure_time, stop_id, stop_sequence };
+    });
+  } catch (error) {
+    console.error('Error loading data:', error);
+  }
+};
 
+// Initial load of data when server starts
+loadData();
+
+// Controller to get route details, trips, and stop times by route_id
+const getRouteTripsStopTimes = async (req, res) => {
+  const routeID = parseInt(req.params.route_id);
+
+  try {
+    // Get the cached route
+    const route = cachedRoutes.find(r => r.route_id === routeID);
+    if (!route) {
+      return res.status(404).json({ message: 'Route not found' });
+    }
+
+    // Get the trips for this route
+    const routeTrips = cachedTrips.filter(trip => trip.route_id === routeID);
     if (routeTrips.length === 0) {
       return res.status(404).json({ message: 'No trips found for this route' });
     }
 
-    // Fetch Stop Times for each trip
-    const stopTimes = {};
-    for (let i = 0; i < routeTrips.length; i++) {
-      const trip = routeTrips[i];
-      const stopTimesData = fs.readFileSync(stopTimesFilePath, 'utf8');
-      const stopTimesLines = stopTimesData.split('\n').filter(line => line.trim() !== '');
-      const stopTimesForTrip = [];
-
-      stopTimesLines.slice(1).forEach(line => {
-        const [trip_id, arrival_time, departure_time, stop_id, stop_sequence] = line.split(',').map(item => item.trim());
-        if (trip_id === trip.trip_id) {
-          stopTimesForTrip.push({
-            arrival_time,
-            departure_time,
-            stop_id,
-            stop_sequence
-          });
-        }
-      });
-
-      if (stopTimesForTrip.length > 0) {
-        stopTimes[`stopTimes_${i + 1}`] = stopTimesForTrip;
+    // Create a lookup table for stop times to avoid multiple iterations
+    const stopTimesLookup = {};
+    cachedStopTimes.forEach(stop => {
+      if (!stopTimesLookup[stop.trip_id]) {
+        stopTimesLookup[stop.trip_id] = [];
       }
-    }
+      stopTimesLookup[stop.trip_id].push(stop);
+    });
+
+    // Prepare the stop times for each trip in parallel
+    const stopTimes = await Promise.all(
+      routeTrips.map(async (trip, index) => {
+        const tripStopTimes = stopTimesLookup[trip.trip_id] || [];
+        return {
+          [`stopTimes_${index + 1}`]: tripStopTimes
+        };
+      })
+    );
 
     // Combine route data, trips, and stop times into the response
     res.json({
       route,
       trips: routeTrips,
-      ...stopTimes
+      ...stopTimes.reduce((acc, curr) => ({ ...acc, ...curr }), {})
     });
   } catch (err) {
     console.error('Error processing request:', err);
