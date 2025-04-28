@@ -1,14 +1,14 @@
-const fs = require('fs').promises;
-
+const fs = require('fs');  // Use the regular fs module for streams
+const readline = require('readline');
 require('dotenv').config();
 
 // Controller to get stop times for a specific trip_id
 const getStopTimesByTripId = (req, res) => {
   console.log('Fetching stop times for trip_id:', req.params.trip_id);
-  
+
   // Get the file path from the environment variable
   const filePath = process.env.STOP_TIMES_FILE_PATH;
-  
+
   try {
     // Read the file data synchronously
     const data = fs.readFileSync(filePath, 'utf8');
@@ -52,33 +52,65 @@ const getStopTimesByTripId = (req, res) => {
 };
 
 // Cache for the routes, trips, and stop times data
-let cachedRoutes = null;
-let cachedTrips = null;
-let cachedStopTimes = null;
+let cachedRoutes = [];
+let cachedTrips = [];
+let cachedStopTimes = [];
 
 // Read data files once at the start of the application (in memory cache)
 const loadData = async () => {
   try {
-    // Read all files asynchronously
-    const routeData = await fs.readFile(process.env.ROUTES_FILE_PATH, 'utf8');
-    const tripData = await fs.readFile(process.env.TRIPS_WITH_SHAPES_FILE_PATH, 'utf8');
-    const stopTimesData = await fs.readFile(process.env.STOP_TIMES_FILE_PATH, 'utf8');
+    // Create a read stream for the files
+    const routeStream = fs.createReadStream(process.env.ROUTES_FILE_PATH, 'utf8');
+    const tripStream = fs.createReadStream(process.env.TRIPS_WITH_SHAPES_FILE_PATH, 'utf8');
+    const stopTimesStream = fs.createReadStream(process.env.STOP_TIMES_FILE_PATH, 'utf8');
 
-    // Cache the data in memory
-    cachedRoutes = routeData.split('\n').filter(line => line.trim() !== '').slice(1).map(line => {
-      const [route_id, route_desc, route_type] = line.split(',').map(item => item.trim());
-      return { route_id: parseInt(route_id), route_desc, route_type: parseInt(route_type) };
+    // Use readline to process files line-by-line
+    const rlRoute = readline.createInterface({
+      input: routeStream,
+      output: process.stdout,
+      terminal: false
     });
 
-    cachedTrips = tripData.split('\n').filter(line => line.trim() !== '').slice(1).map(line => {
-      const [route_id, service_id, trip_id, shape_id] = line.split(',').map(item => item.trim());
-      return { route_id: parseInt(route_id), service_id, trip_id, shape_id };
+    rlRoute.on('line', (line) => {
+      if (line.trim() !== '') {
+        const [route_id, route_desc, route_type] = line.split(',').map(item => item.trim());
+        cachedRoutes.push({ route_id: parseInt(route_id), route_desc, route_type: parseInt(route_type) });
+      }
     });
 
-    cachedStopTimes = stopTimesData.split('\n').filter(line => line.trim() !== '').slice(1).map(line => {
-      const [trip_id, arrival_time, departure_time, stop_id, stop_sequence] = line.split(',').map(item => item.trim());
-      return { trip_id, arrival_time, departure_time, stop_id, stop_sequence };
+    const rlTrip = readline.createInterface({
+      input: tripStream,
+      output: process.stdout,
+      terminal: false
     });
+
+    rlTrip.on('line', (line) => {
+      if (line.trim() !== '') {
+        const [route_id, service_id, trip_id, shape_id] = line.split(',').map(item => item.trim());
+        cachedTrips.push({ route_id: parseInt(route_id), service_id, trip_id, shape_id });
+      }
+    });
+
+    const rlStopTimes = readline.createInterface({
+      input: stopTimesStream,
+      output: process.stdout,
+      terminal: false
+    });
+
+    rlStopTimes.on('line', (line) => {
+      if (line.trim() !== '') {
+        const [trip_id, arrival_time, departure_time, stop_id, stop_sequence] = line.split(',').map(item => item.trim());
+        cachedStopTimes.push({ trip_id, arrival_time, departure_time, stop_id, stop_sequence });
+      }
+    });
+
+    // Wait until all files are read completely
+    await Promise.all([new Promise((resolve) => rlRoute.on('close', resolve)),
+                       new Promise((resolve) => rlTrip.on('close', resolve)),
+                       new Promise((resolve) => rlStopTimes.on('close', resolve))]);
+
+    console.log('Data loaded into cache successfully.');
+
   } catch (error) {
     console.error('Error loading data:', error);
   }
@@ -134,12 +166,6 @@ const getRouteTripsStopTimes = async (req, res) => {
     res.status(500).json({ message: 'Error processing the request' });
   }
 };
-
-// const fs = require('fs').promises; // Use async file reading to avoid blocking the event loop
-
-// Cache data for routes, trips, and stop times in memory at server startup to avoid redundant file reads
-
-// Use Promise.all to process stop times for all trips concurrently for improved performance
 
 module.exports = {
   getStopTimesByTripId,
