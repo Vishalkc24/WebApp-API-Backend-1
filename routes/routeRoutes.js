@@ -20,6 +20,8 @@ router.get('/api/bmtc-polyline/:route_id', routeController.getBmtcPolylineByRout
 // Define the route to get polyline data by route_id from the database
 router.get('/api/fetch-trip-stop-times/:route_id', routeController.getBmtcTripStopTimesByRouteID);
 
+router.get('/api/bmtc-polyline-by-stop/:stop_id', routeController.getRouteIDsByStopID);
+
 // Export the router to be used in the main application
 module.exports = router;
 
