@@ -193,10 +193,93 @@ const getBmtcTripStopTimesByRouteID = async (req, res) => {
   }
 };
 
+// Utility to read and parse the routes file into a map
+const parseRoutesFile = (filePath) => {
+  const routes = {};
+  const data = fs.readFileSync(filePath, 'utf-8');
+  const lines = data.split('\n');
+
+  lines.forEach((line, index) => {
+    // Skip header line or empty lines
+    if (index === 0 || line.trim() === '') return;
+
+    const [route_id, route_desc] = line.split(',');
+    if (route_id && route_desc) {
+      routes[parseInt(route_id)] = route_desc;
+    }
+  });
+
+  return routes;
+};
+
+const getRouteIDsByStopID = async (req, res) => {
+  const stopID = parseInt(req.params.stop_id);
+
+  if (isNaN(stopID)) {
+    return res.status(400).json({ message: 'Invalid stop_id' });
+  }
+
+  const client = new Client({
+    host: process.env.DB_HOST,
+    database: process.env.DB_NAME,
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+  });
+
+  try {
+    await client.connect();
+
+    const query = `
+      SELECT route_id 
+      FROM api_responses 
+      WHERE EXISTS (
+        SELECT 1
+        FROM jsonb_array_elements(response::jsonb->'stops_with_details') AS stop
+        WHERE (stop->>'stop_id')::int = $1
+      )
+    `;
+
+    const result = await client.query(query, [stopID]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'No routes found for the given stop_id' });
+    }
+
+    // Parse the routes file and get the mapping of route_id to route_desc
+    const routesFilePath = process.env.ROUTES_FILE_PATH;
+    const routesMap = parseRoutesFile(routesFilePath);
+
+    // Enhance the response with route_desc for each route_id
+    const enhancedRoutes = result.rows.map(row => {
+      const route_id = row.route_id;
+      const route_desc = routesMap[route_id] || 'Unknown Route';
+      return { route_id, route_desc };
+    });
+
+    res.json({
+      stop_id: stopID,
+      routes: enhancedRoutes
+    });
+
+  } catch (err) {
+    console.error('Error retrieving routes by stop_id:', err);
+    return res.status(500).json({ message: 'Internal server error', error: err.message });
+  } finally {
+    try {
+      await client.end();
+    } catch (closeErr) {
+      console.error('Error closing DB connection:', closeErr);
+    }
+  }
+};
+
+
+
 // Export the function to be used in the route handler
 module.exports = {
   getAllRoutes,
   getRouteByID,
   getBmtcPolylineByRouteID,
-  getBmtcTripStopTimesByRouteID
+  getBmtcTripStopTimesByRouteID,
+  getRouteIDsByStopID
 };
