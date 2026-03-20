@@ -21,15 +21,18 @@ const getAllStops = (req, res) => {
 
     // Parse each line into a stop object
     const stops = lines.slice(1).map(line => {
-      // Split each line by commas and trim extra spaces
-      const [stop_id, stop_name, stop_lat, stop_lon, location_type] = line.split(',').map(item => item.trim()); // Remove extra spaces
+      // New format: stop_name,zone_id,stop_id,stop_desc,stop_lat,stop_lon
+      const [stop_name, zone_id, stop_id, stop_desc, stop_lat, stop_lon] = line.split(',').map(item => item.trim());
 
       return {
-        stop_id: parseInt(stop_id),            // Convert stop_id to an integer
-        stop_name: stop_name,                  // Stop name is a string
-        stop_lat: parseFloat(stop_lat),        // Convert stop_lat to float
-        stop_lon: parseFloat(stop_lon),        // Convert stop_lon to float
-        location_type: location_type || null   // Set location_type to null if it's missing
+        stop_id: parseInt(stop_id),
+        stop_name: stop_name,
+        stop_lat: parseFloat(stop_lat),
+        stop_lon: parseFloat(stop_lon),
+        zone_id: zone_id || null,
+        stop_desc: stop_desc || null,
+        // Keep location_type for backwards compatibility (no longer present in file)
+        location_type: null
       };
     });
 
@@ -62,15 +65,18 @@ const getStopByID = (req, res) => {
     // Split the file content by newline and filter out empty lines
     const lines = data.split('\n').filter(line => line.trim() !== '');  // Remove empty lines
 
-    // Parse each line into a stop object
+    // Parse each line into a stop object (new format)
     const stops = lines.slice(1).map(line => {
-      const [stop_id_in_file, stop_name, stop_lat, stop_lon, location_type] = line.split(',').map(item => item.trim()); // Remove extra spaces
+      // New format: stop_name,zone_id,stop_id,stop_desc,stop_lat,stop_lon
+      const [stop_name_in_file, zone_id, stop_id_in_file, stop_desc, stop_lat, stop_lon] = line.split(',').map(item => item.trim());
       return {
-        stop_id: parseInt(stop_id_in_file),  // Convert stop_id to an integer
-        stop_name: stop_name,                // Stop name is a string
-        stop_lat: parseFloat(stop_lat),      // Convert stop_lat to float
-        stop_lon: parseFloat(stop_lon),      // Convert stop_lon to float
-        location_type: location_type || null // Set location_type to null if it's missing
+        stop_id: parseInt(stop_id_in_file),
+        stop_name: stop_name_in_file,
+        stop_lat: parseFloat(stop_lat),
+        stop_lon: parseFloat(stop_lon),
+        zone_id: zone_id || null,
+        stop_desc: stop_desc || null,
+        location_type: null
       };
     });
 
