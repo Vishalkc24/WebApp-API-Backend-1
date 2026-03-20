@@ -22,12 +22,17 @@ const getAllRoutes = (req, res) => {
     // Parse each line into a route object
     const routes = lines.slice(1).map(line => {
       // Split each line by commas and trim extra spaces
-      const [route_id, route_desc, route_type] = line.split(',').map(item => item.trim()); // Remove extra spaces
+      // New format: route_long_name,route_short_name,agency_id,route_type,route_id
+      const [route_long_name, route_short_name, agency_id, route_type, route_id] = line.split(',').map(item => item.trim());
+
       return {
-        // Parse and return the route data
+        // Keep existing fields for compatibility and expose new ones
         route_id: parseInt(route_id),
-        route_desc: route_desc,
-        route_type: parseInt(route_type)
+        route_type: parseInt(route_type),
+        route_desc: route_long_name, // Backwards-compatible description
+        route_long_name: route_long_name,
+        route_short_name: route_short_name,
+        agency_id: agency_id ? parseInt(agency_id) : null
       };
     });
 
@@ -60,11 +65,15 @@ const getRouteByID = (req, res) => {
     const lines = data.split('\n').filter(line => line.trim() !== '');
 
     const routes = lines.slice(1).map(line => {
-      const [route_id, route_desc, route_type] = line.split(',').map(item => item.trim());
+      // New format: route_long_name,route_short_name,agency_id,route_type,route_id
+      const [route_long_name, route_short_name, agency_id, route_type, route_id] = line.split(',').map(item => item.trim());
       return {
         route_id: parseInt(route_id),
-        route_desc: route_desc,
-        route_type: parseInt(route_type)
+        route_type: parseInt(route_type),
+        route_desc: route_long_name,
+        route_long_name: route_long_name,
+        route_short_name: route_short_name,
+        agency_id: agency_id ? parseInt(agency_id) : null
       };
     });
 
@@ -108,7 +117,7 @@ const getBmtcPolylineByRouteID = async (req, res) => {
 
     // Query the database to find the record with the specified route_id
     const result = await client.query(
-      'SELECT response FROM api_responses WHERE route_id = $1',
+      'SELECT response FROM api_responses_bmtc_updated_new WHERE route_id = $1',
       [routeID]
     );
 
@@ -163,7 +172,7 @@ const getBmtcTripStopTimesByRouteID = async (req, res) => {
 
     // Query the database to find the record with the specified route_id
     const result = await client.query(
-      'SELECT response FROM bmtc_api_responses WHERE route_id = $1',
+      'SELECT response FROM api_responses_bmtc_updated_new WHERE route_id = $1',
       [routeID]
     );
 
@@ -203,9 +212,11 @@ const parseRoutesFile = (filePath) => {
     // Skip header line or empty lines
     if (index === 0 || line.trim() === '') return;
 
-    const [route_id, route_desc] = line.split(',');
-    if (route_id && route_desc) {
-      routes[parseInt(route_id)] = route_desc;
+    // New format: route_long_name,route_short_name,agency_id,route_type,route_id
+    const [route_long_name, route_short_name, agency_id, route_type, route_id] = line.split(',').map(item => item.trim());
+    if (route_id && route_long_name) {
+      // Use long name as description for compatibility
+      routes[parseInt(route_id)] = route_long_name;
     }
   });
 
@@ -231,7 +242,7 @@ const getRouteIDsByStopID = async (req, res) => {
 
     const query = `
       SELECT route_id 
-      FROM api_responses 
+      FROM api_responses_bmtc_updated_new 
       WHERE EXISTS (
         SELECT 1
         FROM jsonb_array_elements(response::jsonb->'stops_with_details') AS stop
