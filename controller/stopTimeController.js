@@ -21,7 +21,8 @@ const getStopTimesByTripId = (req, res) => {
 
     // Loop through each line and parse it
     lines.slice(1).forEach(line => {
-      const [trip_id, arrival_time, departure_time, stop_id, stop_sequence] = line.split(',').map(item => item.trim());
+      // New format: trip_id,arrival_time,departure_time,stop_id,stop_sequence,stop_headsign
+      const [trip_id, arrival_time, departure_time, stop_id, stop_sequence, stop_headsign] = line.split(',').map(item => item.trim());
 
       // If the trip_id matches the requested trip_id, add the stop time record
       if (trip_id === req.params.trip_id) {
@@ -29,7 +30,8 @@ const getStopTimesByTripId = (req, res) => {
           arrival_time: arrival_time,
           departure_time: departure_time,
           stop_id: stop_id,
-          stop_sequence: stop_sequence
+          stop_sequence: stop_sequence,
+          stop_headsign: stop_headsign || null
         });
       }
     });
@@ -73,8 +75,16 @@ const loadData = async () => {
 
     rlRoute.on('line', (line) => {
       if (line.trim() !== '') {
-        const [route_id, route_desc, route_type] = line.split(',').map(item => item.trim());
-        cachedRoutes.push({ route_id: parseInt(route_id), route_desc, route_type: parseInt(route_type) });
+        // New format: route_long_name,route_short_name,agency_id,route_type,route_id
+        const [route_long_name, route_short_name, agency_id, route_type, route_id] = line.split(',').map(item => item.trim());
+        cachedRoutes.push({
+          route_id: parseInt(route_id),
+          route_type: parseInt(route_type),
+          route_desc: route_long_name,
+          route_long_name,
+          route_short_name,
+          agency_id: agency_id ? parseInt(agency_id) : null
+        });
       }
     });
 
@@ -86,8 +96,16 @@ const loadData = async () => {
 
     rlTrip.on('line', (line) => {
       if (line.trim() !== '') {
-        const [route_id, service_id, trip_id, shape_id] = line.split(',').map(item => item.trim());
-        cachedTrips.push({ route_id: parseInt(route_id), service_id, trip_id, shape_id });
+        // New format: route_id,service_id,trip_headsign,direction_id,shape_id,trip_id
+        const [route_id, service_id, trip_headsign, direction_id, shape_id, trip_id] = line.split(',').map(item => item.trim());
+        cachedTrips.push({
+          route_id: parseInt(route_id),
+          service_id,
+          trip_headsign,
+          direction_id: direction_id ? parseInt(direction_id) : null,
+          shape_id,
+          trip_id
+        });
       }
     });
 
@@ -99,8 +117,9 @@ const loadData = async () => {
 
     rlStopTimes.on('line', (line) => {
       if (line.trim() !== '') {
-        const [trip_id, arrival_time, departure_time, stop_id, stop_sequence] = line.split(',').map(item => item.trim());
-        cachedStopTimes.push({ trip_id, arrival_time, departure_time, stop_id, stop_sequence });
+        // New format: trip_id,arrival_time,departure_time,stop_id,stop_sequence,stop_headsign
+        const [trip_id, arrival_time, departure_time, stop_id, stop_sequence, stop_headsign] = line.split(',').map(item => item.trim());
+        cachedStopTimes.push({ trip_id, arrival_time, departure_time, stop_id, stop_sequence, stop_headsign: stop_headsign || null });
       }
     });
 
