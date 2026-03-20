@@ -21,14 +21,15 @@ const getAllTrips = (req, res) => {
 
     // Parse each line into a trip object
     const trips = lines.slice(1).map(line => {
-      // Split each line by commas and trim extra spaces
-      const [route_id, service_id, trip_id, shape_id] = line.split(',').map(item => item.trim()); // Remove extra spaces
+      // New format: route_id,service_id,trip_headsign,direction_id,shape_id,trip_id
+      const [route_id, service_id, trip_headsign, direction_id, shape_id, trip_id] = line.split(',').map(item => item.trim());
       return {
-        // Parse and return the trip data
         route_id: parseInt(route_id),
         service_id: service_id,
-        trip_id: trip_id,
-        shape_id: shape_id
+        trip_headsign: trip_headsign,
+        direction_id: direction_id ? parseInt(direction_id) : null,
+        shape_id: shape_id,
+        trip_id: trip_id
       };
     });
 
@@ -61,14 +62,17 @@ const getTripByID = (req, res) => {
     // Split the file content by newline and filter out empty lines
     const lines = data.split('\n').filter(line => line.trim() !== '');  // Remove empty lines
 
-    // Parse each line into a trip object
+    // Parse each line into a trip object (new format)
     const trips = lines.slice(1).map(line => {
-      const [route_id, service_id, trip_id_in_file, shape_id] = line.split(',').map(item => item.trim()); // Remove extra spaces
+      // New format: route_id,service_id,trip_headsign,direction_id,shape_id,trip_id
+      const [route_id, service_id, trip_headsign, direction_id, shape_id, trip_id_in_file] = line.split(',').map(item => item.trim());
       return {
         route_id: parseInt(route_id),
         service_id: service_id,
-        trip_id: trip_id_in_file,
-        shape_id: shape_id
+        trip_headsign: trip_headsign,
+        direction_id: direction_id ? parseInt(direction_id) : null,
+        shape_id: shape_id,
+        trip_id: trip_id_in_file
       };
     });
 
