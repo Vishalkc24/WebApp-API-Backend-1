@@ -58,12 +58,21 @@ let cachedRoutes = [];
 let cachedTrips = [];
 let cachedStopTimes = [];
 
-// Read data files once at the start of the application (in memory cache)
-const loadData = async () => {
+// Helper to completely reset in-memory caches (kept for potential future use)
+const resetCache = () => {
+  cachedRoutes = [];
+  cachedTrips = [];
+  cachedStopTimes = [];
+};
+
+// Read data files (routes, trips, stop_times) into the in-memory cache
+const loadRoutesAndTrips = async () => {
   try {
     // Create a read stream for the files
     const routeStream = fs.createReadStream(process.env.ROUTES_FILE_PATH, 'utf8');
-    const tripStream = fs.createReadStream(process.env.TRIPS_WITH_SHAPES_FILE_PATH, 'utf8');
+    // Use the main trips file (TRIPS_FILE_PATH) so all trips like 5953
+    // are available here for route->trips->stop_times joining.
+    const tripStream = fs.createReadStream(process.env.TRIPS_FILE_PATH, 'utf8');
     const stopTimesStream = fs.createReadStream(process.env.STOP_TIMES_FILE_PATH, 'utf8');
 
     // Use readline to process files line-by-line
@@ -74,18 +83,24 @@ const loadData = async () => {
     });
 
     rlRoute.on('line', (line) => {
-      if (line.trim() !== '') {
-        // New format: route_long_name,route_short_name,agency_id,route_type,route_id
-        const [route_long_name, route_short_name, agency_id, route_type, route_id] = line.split(',').map(item => item.trim());
-        cachedRoutes.push({
-          route_id: parseInt(route_id),
-          route_type: parseInt(route_type),
-          route_desc: route_long_name,
-          route_long_name,
-          route_short_name,
-          agency_id: agency_id ? parseInt(agency_id) : null
-        });
+      const trimmed = line.trim();
+      if (!trimmed) return;
+
+      // Skip header line
+      if (trimmed.startsWith('route_long_name,route_short_name,agency_id,route_type,route_id')) {
+        return;
       }
+
+      // New format: route_long_name,route_short_name,agency_id,route_type,route_id
+      const [route_long_name, route_short_name, agency_id, route_type, route_id] = trimmed.split(',').map(item => item.trim());
+      cachedRoutes.push({
+        route_id: parseInt(route_id),
+        route_type: parseInt(route_type),
+        route_desc: route_long_name,
+        route_long_name,
+        route_short_name,
+        agency_id: agency_id ? parseInt(agency_id) : null
+      });
     });
 
     const rlTrip = readline.createInterface({
@@ -95,18 +110,24 @@ const loadData = async () => {
     });
 
     rlTrip.on('line', (line) => {
-      if (line.trim() !== '') {
-        // New format: route_id,service_id,trip_headsign,direction_id,shape_id,trip_id
-        const [route_id, service_id, trip_headsign, direction_id, shape_id, trip_id] = line.split(',').map(item => item.trim());
-        cachedTrips.push({
-          route_id: parseInt(route_id),
-          service_id,
-          trip_headsign,
-          direction_id: direction_id ? parseInt(direction_id) : null,
-          shape_id,
-          trip_id
-        });
+      const trimmed = line.trim();
+      if (!trimmed) return;
+
+      // Skip header line
+      if (trimmed.startsWith('route_id,service_id,trip_headsign,direction_id,shape_id,trip_id')) {
+        return;
       }
+
+      // New format: route_id,service_id,trip_headsign,direction_id,shape_id,trip_id
+      const [route_id, service_id, trip_headsign, direction_id, shape_id, trip_id] = trimmed.split(',').map(item => item.trim());
+      cachedTrips.push({
+        route_id: parseInt(route_id),
+        service_id,
+        trip_headsign,
+        direction_id: direction_id ? parseInt(direction_id) : null,
+        shape_id,
+        trip_id
+      });
     });
 
     const rlStopTimes = readline.createInterface({
@@ -116,11 +137,17 @@ const loadData = async () => {
     });
 
     rlStopTimes.on('line', (line) => {
-      if (line.trim() !== '') {
-        // New format: trip_id,arrival_time,departure_time,stop_id,stop_sequence,stop_headsign
-        const [trip_id, arrival_time, departure_time, stop_id, stop_sequence, stop_headsign] = line.split(',').map(item => item.trim());
-        cachedStopTimes.push({ trip_id, arrival_time, departure_time, stop_id, stop_sequence, stop_headsign: stop_headsign || null });
+      const trimmed = line.trim();
+      if (!trimmed) return;
+
+      // Skip header line
+      if (trimmed.startsWith('trip_id,arrival_time,departure_time,stop_id,stop_sequence,stop_headsign')) {
+        return;
       }
+
+      // New format: trip_id,arrival_time,departure_time,stop_id,stop_sequence,stop_headsign
+      const [trip_id, arrival_time, departure_time, stop_id, stop_sequence, stop_headsign] = trimmed.split(',').map(item => item.trim());
+      cachedStopTimes.push({ trip_id, arrival_time, departure_time, stop_id, stop_sequence, stop_headsign: stop_headsign || null });
     });
 
     // Wait until all files are read completely
@@ -136,50 +163,103 @@ const loadData = async () => {
 };
 
 // Initial load of data when server starts
-loadData();
+loadRoutesAndTrips();
 
 // Controller to get route details, trips, and stop times by route_id
 const getRouteTripsStopTimes = async (req, res) => {
-  const routeID = parseInt(req.params.route_id);
+  const routeID = String(req.params.route_id).trim();
+  // console.log('Received route_id:', routeID);
 
   try {
-    // Get the cached route
-    const route = cachedRoutes.find(r => r.route_id === routeID);
+    // Get the cached route and check the format
+    const route = cachedRoutes.find(r => {
+      const route_id = String(r.route_id).trim();
+      // console.log(`Checking route in cachedRoutes: route_id = "${route_id}", expected route_id = "${routeID}"`);
+      return route_id === routeID;
+    });
+
     if (!route) {
+      // console.log('Route not found:', routeID);
       return res.status(404).json({ message: 'Route not found' });
     }
+    // console.log('Found route:', route);
 
     // Get the trips for this route
-    const routeTrips = cachedTrips.filter(trip => trip.route_id === routeID);
+    const routeTrips = cachedTrips.filter(trip => {
+      const tripRouteId = String(trip.route_id).trim();
+      return tripRouteId === routeID;
+    });
+
     if (routeTrips.length === 0) {
+      // console.log('No trips found for route:', routeID);
       return res.status(404).json({ message: 'No trips found for this route' });
     }
 
-    // Create a lookup table for stop times to avoid multiple iterations
-    const stopTimesLookup = {};
-    cachedStopTimes.forEach(stop => {
-      if (!stopTimesLookup[stop.trip_id]) {
-        stopTimesLookup[stop.trip_id] = [];
+    // Shape trips to match desired header format, but keep trip_id for automation
+    const shapedTrips = routeTrips.map(trip => ({
+      route_id: trip.route_id,
+      service_id: trip.service_id,
+      trip_headsign: trip.trip_headsign,
+      direction_id: trip.direction_id,
+      trip_id: trip.trip_id
+    }));
+
+    // Create lookup tables for stop times to avoid multiple iterations
+    const stopTimesByTripId = {};
+    const stopTimesByHeadSign = {};
+    for (const stop of cachedStopTimes) {
+      const tripID = String(stop.trip_id || '').trim();
+      const headSign = String(stop.stop_headsign || '').trim();
+
+      if (tripID) {
+        if (!stopTimesByTripId[tripID]) {
+          stopTimesByTripId[tripID] = [];
+        }
+        stopTimesByTripId[tripID].push(stop);
       }
-      stopTimesLookup[stop.trip_id].push(stop);
-    });
+
+      if (headSign) {
+        if (!stopTimesByHeadSign[headSign]) {
+          stopTimesByHeadSign[headSign] = [];
+        }
+        stopTimesByHeadSign[headSign].push(stop);
+      }
+    }
+    // console.log('Stop times by trip_id keys (sample):', Object.keys(stopTimesByTripId).slice(0, 20));
+    // console.log('Stop times by stop_headsign keys (sample):', Object.keys(stopTimesByHeadSign).slice(0, 20));
 
     // Prepare the stop times for each trip in parallel
     const stopTimes = await Promise.all(
       routeTrips.map(async (trip, index) => {
-        const tripStopTimes = stopTimesLookup[trip.trip_id] || [];
+        const tripIdKey = String(trip.trip_id || '').trim();
+        const headsignKey = String(trip.trip_headsign || '').trim();
+        const routeShortNameKey = String(route.route_short_name || '').trim();
+        const routeLongNameKey = String(route.route_long_name || '').trim();
+
+        const candidateKeys = [tripIdKey, headsignKey, routeShortNameKey, routeLongNameKey].filter(Boolean);
+
+        let tripStopTimes = [];
+        for (const key of candidateKeys) {
+          if (stopTimesByTripId[key] || stopTimesByHeadSign[key]) {
+            tripStopTimes = stopTimesByTripId[key] || stopTimesByHeadSign[key];
+            break;
+          }
+        }
+
         return {
           [`stopTimes_${index + 1}`]: tripStopTimes
         };
       })
     );
 
-    // Combine route data, trips, and stop times into the response
-    res.json({
+    // Combine route data, trips (with header formatting), and stop times into the response
+    const response = {
       route,
-      trips: routeTrips,
+      trips: shapedTrips,
       ...stopTimes.reduce((acc, curr) => ({ ...acc, ...curr }), {})
-    });
+    };
+
+    res.json(response);
   } catch (err) {
     console.error('Error processing request:', err);
     res.status(500).json({ message: 'Error processing the request' });
