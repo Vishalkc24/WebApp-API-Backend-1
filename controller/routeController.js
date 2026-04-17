@@ -172,7 +172,7 @@ const getBmtcTripStopTimesByRouteID = async (req, res) => {
 
     // Query the database to find the record with the specified route_id
     const result = await client.query(
-      'SELECT response FROM api_responses_bmtc_updated_new WHERE route_id = $1',
+      'SELECT response FROM api_responses_bangalore_gtfs_trips_stop_times WHERE route_id = $1',
       [routeID]
     );
 
