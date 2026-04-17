@@ -38,6 +38,9 @@ const shortestPathRoutes = require('./routes/shortestPathRoutes');
 // Import the shapes from shapeRoutes.js
 const shapeRoutes = require('./routes/shapeRoutes');
 
+// Import calendar range route
+const calendarRoutes = require('./routes/calendarRoutes');
+
 // Initialize dotenv to load environment variables from .env file
 dotenv.config();
 
@@ -70,6 +73,9 @@ app.use(shortestPathRoutes);
 
 // Use the imported shapes in the app
 app.use(shapeRoutes);
+
+// Use the calendar routes in the app
+app.use(calendarRoutes);
 
 // Define the port from environment variables or fallback to 3000
 const PORT = process.env.PORT || 3000;
